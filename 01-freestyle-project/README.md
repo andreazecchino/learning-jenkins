@@ -12,9 +12,8 @@
 ```bash
 # Paste those commands in the textarea
 docker pull aquasec/trivy
-docker run -v ${WORKSPACE}:/app -v ${WORKSPACE}/.trivy-cache:/root/.cache/ aquasec/trivy \
+docker run -v ${WORKSPACE}:/app aquasec/trivy \
   fs \
-  --cache-dir ${WORKSPACE}/.trivy-cache \
   --severity HIGH,CRITICAL \
   --scanners vuln,secret,misconfig \
   --ignore-unfixed \
