@@ -50,7 +50,7 @@ To unlock Jenkins, extract and copy the password from the container:
 docker exec ${CONTAINER_ID or CONTAINER_NAME} cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
-Then browse `http://localhost:8000`, wait until the **Unlock Jenkins** page appears and then paste the password.
+Then browse `http://localhost:8080`, wait until the **Unlock Jenkins** page appears and then paste the password.
 
 When the **Customize Jenkins** page appears, select the option to install the suggested plugins.
 
