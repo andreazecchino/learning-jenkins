@@ -1,0 +1,69 @@
+name: learning-jenkins
+
+services:
+  dind:
+    image: docker:dind
+    container_name: jenkins-docker
+    privileged: true
+    command: ["--storage-driver=overlay2"]
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - jenkins-docker-certs:/certs/client
+      - jenkins-data:/var/jenkins_home
+      - ./certs/registry.crt:/etc/docker/certs.d/registry.local/ca.crt:ro
+    networks:
+      jenkins:
+        aliases:
+          - docker
+
+  controller:
+    image: myjenkins:2.587
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jenkins
+    restart: on-failure
+    depends_on:
+      - dind
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: 1
+    ports:
+      - 8080:8080
+      - 50000:50000
+    volumes:
+      - jenkins-docker-certs:/certs/client:ro
+      - jenkins-data:/var/jenkins_home
+    networks:
+      - jenkins
+
+  registry.local:
+    image: registry:3
+    container_name: registry
+    restart: unless-stopped
+    environment:
+      REGISTRY_HTTP_ADDR: 0.0.0.0:443
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/registry.crt
+      REGISTRY_HTTP_TLS_KEY: /certs/registry.key
+    ports:
+      - 5000:443
+    volumes:
+      - registry-data:/var/lib/registry
+      - ./certs:/certs:ro
+    networks:
+      - jenkins
+
+volumes:
+  jenkins-docker-certs:
+    name: jenkins-docker-certs
+  jenkins-data:
+    name: jenkins-data
+  registry-data:
+    name: registry-data
+
+networks:
+  jenkins:
+    name: jenkins-network
+
