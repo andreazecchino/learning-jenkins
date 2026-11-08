@@ -1,6 +1,34 @@
 pipeline {
     agent any
+    environment {
+        REPOSITORY = 'https://github.com/andreazecchino/poc-py-llm'
+        BRANCH = 'develop'
+        REGISTRY = 'registry.local'
+        IMAGE = 'poc-py-llm'
+    }
+    options {
+        buildDiscarder logRotator(
+            artifactDaysToKeepStr: '',
+            artifactNumToKeepStr: '3',
+            daysToKeepStr: '',
+            numToKeepStr: '3')
+        disableConcurrentBuilds abortPrevious: true
+        disableResume()
+        timeout(time: 30, unit: 'MINUTES')
+    }
     stages {
+        stage('Checkout SCM') {
+            steps {
+                checkout scmGit(
+                    branches: [[name: "$BRANCH"]],
+                    extensions: [],
+                    userRemoteConfigs: [[url: "$REPOSITORY"]]
+                )
+                script {
+                    env.TAG = env.GIT_COMMIT?.take(8) ?: env.BUILD_ID
+                }
+            }
+        }
         stage('Lint & Unit tests') {
             agent {
                 docker {
@@ -24,7 +52,7 @@ pipeline {
                 sh 'uv run python -m unittest discover -s tests -p "test_*.py" -v'
             }
         }
-        stage('Security Scan') {
+        stage('Security Scan: Filesystem') {
             agent {
                 docker {
                     image 'aquasec/trivy:0.76.1'
@@ -53,18 +81,18 @@ pipeline {
                 '''
             }
         }
-        stage('Build & Verify Docker Image') {
+        stage('Build, Verify & Push Docker Image') {
             steps {
                 script {
-                    docker.withRegistry('https://registry.local') {
-                        def img = docker.build("poc-py-llm:${env.BUILD_ID}")
-                        if (!img) {
-                            error("Docker image build failed")
-                        }
-                        img.push()
-                        img.inside {
-                            sh 'python -c "import sys; print(sys.version); print(\'smoke test ok\')"'
-                        }
+                    def img = docker.build("${REGISTRY}/${IMAGE}:${TAG}")
+
+                    img.inside {
+                        sh 'python -c "import sys; print(sys.version)"'
+                    }
+
+                    docker.withRegistry("https://${REGISTRY}") {
+                        img.push(tag)
+                        img.push('latest')
                     }
                 }
             }
@@ -73,6 +101,17 @@ pipeline {
     post {
         always {
             archiveArtifacts allowEmptyArchive: true, artifacts: 'trivy-*.json', fingerprint: true, followSymlinks: false
+            cleanWs(
+                deleteDirs: true,
+                notFailBuild: true,
+                patterns: [
+                    [pattern: 'trivy-*.json', type: 'EXCLUDE'],
+                ]
+            )
+            sh returnStatus: true, script: """
+                docker image rm -f \"${REGISTRY}/${IMAGE}\":latest || true
+                docker image rm -f \"${REGISTRY}/${IMAGE}\":${TAG} || true
+            """
         }
     }
 }
