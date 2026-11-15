@@ -108,9 +108,10 @@ pipeline {
                       --cache-dir "$TRIVY_CACHE_DIR" \
                       --severity HIGH,CRITICAL \
                       --scanners vuln,secret,misconfig \
+                      --ignore-unfixed \
+                      --exit-code 1 \
                       --format json \
-                      --output trivy-image-report.json \
-                      --ignore-unfixed
+                      --output trivy-image-report.json
                 '''
             }
         }
