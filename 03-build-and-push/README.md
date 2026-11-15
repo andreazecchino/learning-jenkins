@@ -1,6 +1,6 @@
 # Build and Push Docker Images
 
-In this lesson we will run Jenkins in Docker Compose with Docker-in-Docker and a private, TLS-secured Docker registry. Jenkins builds images and pushes them to the registry, and all containers connections are encrypted with certificates from a local Certificate Authority (CA).
+In this lesson we will run Jenkins in Docker Compose with Docker-in-Docker and a private, TLS-secured Docker registry. Jenkins builds images and pushes them to the registry using an encrypted connections with certificates from a local Certificate Authority (CA).
 
 ## Services
 
