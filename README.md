@@ -5,8 +5,9 @@ This repository documents my journey through the Jenkins automation server. Each
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) installed and running (all lessons run Jenkins and its build tools in containers)
-- A terminal with `bash`-compatible syntax (on Windows, use WSL or Git Bash)
-- A Git repository with a small Python project to build. I used this personal project [poc-py-llm](https://github.com/andreazecchino/poc-py-llm) (any project with a `pyproject.toml`, a `uv.lock` and a `tests/` folder will works).
+- A terminal with `bash`-compatible syntax
+- A Git repository with a small Python project to build. I used this personal project [poc-py-llm](https://github.com/andreazecchino/poc-py-llm) (any project with a `pyproject.toml`, a `uv.lock` and a `tests/` folder will works)
+- OpenSSL to generate self-signed certificates
 
 ## Lessons
 
@@ -15,7 +16,7 @@ This repository documents my journey through the Jenkins automation server. Each
 | 00 | [Installation](00-installation/README.md) | Run Jenkins in Docker, with Docker-in-Docker so builds can use containers |
 | 01 | [Freestyle project](01-freestyle-project/README.md) | Create a classic job from the UI and scan code with Trivy |
 | 02 | [Pipeline](02-pipeline/README.md) | Pipeline as code: a `Jenkinsfile` with lint, unit tests and a security scan |
-| 03 | Build and Push | Extends the previous lesson with volume caching, building and pushing a Docker image to a local registry.
+| 03 | [Build and Push](03-build-and-push/README.md) | Extends the previous lesson with caching, building and pushing a Docker image to a local registry.
 
 ## Notes
 
