@@ -5,6 +5,7 @@ pipeline {
         BRANCH = 'develop'
         REGISTRY = 'registry.local'
         IMAGE = 'poc-py-llm'
+        REF = "${REGISTRY}/${IMAGE}"
     }
     options {
         buildDiscarder logRotator(
@@ -25,7 +26,7 @@ pipeline {
                     userRemoteConfigs: [[url: "$REPOSITORY"]]
                 )
                 script {
-                    env.TAG = env.GIT_COMMIT?.take(8) ?: env.BUILD_ID
+                    env.TAG = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                 }
             }
         }
@@ -33,17 +34,12 @@ pipeline {
             agent {
                 docker {
                     image 'ghcr.io/astral-sh/uv:python3.14-trixie-slim'
-                    args '''
-                        -u 0:0
-                        -v uv-cache:/tmp/uv-cache
-                        -v uv-tools:/tmp/uv-tools
-                    '''
                     reuseNode true
                 }
             }
             environment {
-                UV_CACHE_DIR = "/tmp/uv-cache"
-                UV_TOOL_DIR = "/tmp/uv-tools"
+                UV_CACHE_DIR = "${env.WORKSPACE}/.uv-cache"
+                UV_TOOL_DIR = "${env.WORKSPACE}/.uv-tools"
             }
             steps {
                 sh 'uv sync --locked'
@@ -56,16 +52,12 @@ pipeline {
             agent {
                 docker {
                     image 'aquasec/trivy:0.76.1'
-                    args '''
-                        -u 0:0
-                        -v trivy-cache:/tmp/trivy-cache
-                        --entrypoint=""
-                    '''
+                    args '--entrypoint=""'
                     reuseNode true
                 }
             }
             environment {
-                TRIVY_CACHE_DIR = "/tmp/trivy-cache"
+                TRIVY_CACHE_DIR = "${env.WORKSPACE}/.trivy-cache"
             }
             steps {
                 sh '''
@@ -81,17 +73,54 @@ pipeline {
                 '''
             }
         }
-        stage('Build, Verify & Push Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    def img = docker.build("${REGISTRY}/${IMAGE}:${TAG}")
-
-                    img.inside {
+                    docker.build("${REF}:${TAG}")
+                    sh 'docker image save -o image.tar "${REF}:${TAG}"'
+                }
+            }
+        }
+        stage('Smoke Test') {
+            steps {
+                script {
+                    docker.image("${REF}:${TAG}").inside {
                         sh 'python -c "import sys; print(sys.version)"'
                     }
-
+                }
+            }
+        }
+        stage('Security Scan: Image') {
+            agent {
+                docker {
+                    image 'aquasec/trivy:0.76.1'
+                    args '--entrypoint=""'
+                    reuseNode true
+                }
+            }
+            environment {
+                TRIVY_CACHE_DIR = "${env.WORKSPACE}/.trivy-cache"
+            }
+            steps {
+                sh '''
+                    trivy image \
+                      --input image.tar \
+                      --cache-dir "$TRIVY_CACHE_DIR" \
+                      --severity HIGH,CRITICAL \
+                      --scanners vuln,secret,misconfig \
+                      --format json \
+                      --output trivy-image-report.json \
+                      --ignore-unfixed
+                '''
+            }
+        }
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    def img = docker.image("${REF}:${TAG}")
                     docker.withRegistry("https://${REGISTRY}") {
-                        img.push(tag)
+                        img.push("${env.BUILD_ID}")
+                        img.push("${TAG}")
                         img.push('latest')
                     }
                 }
@@ -106,11 +135,15 @@ pipeline {
                 notFailBuild: true,
                 patterns: [
                     [pattern: 'trivy-*.json', type: 'EXCLUDE'],
+                    [pattern: '.trivy-cache/', type: 'EXCLUDE'],
+                    [pattern: '.uv-cache/', type: 'EXCLUDE'],
+                    [pattern: '.uv-tools/', type: 'EXCLUDE'],
                 ]
             )
             sh returnStatus: true, script: """
-                docker image rm -f \"${REGISTRY}/${IMAGE}\":latest || true
-                docker image rm -f \"${REGISTRY}/${IMAGE}\":${TAG} || true
+                docker image rm -f ${REF}:latest || true
+                docker image rm -f ${REF}:${TAG} || true
+                docker image rm -f ${REF}:${env.BUILD_ID} || true
             """
         }
     }
