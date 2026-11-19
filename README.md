@@ -17,6 +17,7 @@ This repository documents my journey through the Jenkins automation server. Each
 | 01 | [Freestyle project](01-freestyle-project/README.md) | Create a classic job from the UI and scan code with Trivy |
 | 02 | [Pipeline](02-pipeline/README.md) | Pipeline as code: a `Jenkinsfile` with lint, unit tests and a security scan |
 | 03 | [Build and Push](03-build-and-push/README.md) | Extends the previous lesson with caching, building and pushing a Docker image to a local registry.
+| 04 | Credentials | Extends the previous lesson with registry credentials, parameters, parallel executions and retry policies.
 
 ## Notes
 
